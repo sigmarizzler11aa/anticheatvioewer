@@ -108,7 +108,8 @@ function Scanner:AddResult(title, details, resultType, script, path)
     
     -- Store script reference and kick information
     ViewButton.MouseButton1Click:Connect(function()
-        local CodeViewer = require(script.Parent.CodeViewer)
+        -- Fixed line 111 - use the global module reference instead of trying to require it
+        local CodeViewer = Modules.CodeViewer
         
         -- Extract line numbers from details
         local kickLineNumbers = {}
@@ -179,6 +180,11 @@ function Scanner:AddResult(title, details, resultType, script, path)
 end
 
 function Scanner:GetScriptSource(script)
+    -- Check if script is a valid Instance
+    if typeof(script) ~= "Instance" then
+        return nil
+    end
+    
     local decompileFunctions = {
         decompile, getscriptbytecode, dumpstring, getscriptsource,
         function(s) return s:GetSource() end, function(s) return s.Source end
@@ -204,130 +210,133 @@ function Scanner:Scan()
     local scannedScripts = 0
     local foundCount = 0
     
-    -- First, count all scripts to track progress
-    local function countScripts(instance)
-        if instance:IsA("LocalScript") then
-            totalScripts = totalScripts + 1
-        end
-        
-        for _, child in ipairs(instance:GetChildren()) do
-            countScripts(child)
-        end
-    end
-    
-    for _, service in ipairs(game:GetChildren()) do
-        pcall(function() countScripts(service) end)
-    end
-    
-    self.UI.Elements.TotalScriptsValue.Text = tostring(totalScripts)
-    
-    local function searchForKickInScript(script, path)
-        scannedScripts = scannedScripts + 1
-        self.UI:UpdateProgress(scannedScripts / totalScripts)
-        
-        local scriptSource = self:GetScriptSource(script)
-        
-        if scriptSource and type(scriptSource) == "string" then
-            local lines = {}
-            for line in scriptSource:gmatch("[^\r\n]+") do table.insert(lines, line) end
+    -- Run the scan in a protected call to avoid errors
+    pcall(function()
+        -- First, count all scripts to track progress
+        local function countScripts(instance)
+            if instance:IsA("LocalScript") then
+                totalScripts = totalScripts + 1
+            end
             
-            local kickLines = {}
-            for lineNum, lineContent in ipairs(lines) do
-                if string.find(string.lower(lineContent), string.lower("Kick")) then
-                    local coloredLine = lineContent:gsub("([Kk][Ii][Cc][Kk])", "<font color='#FF5555'>%1</font>")
-                    table.insert(kickLines, "<b>Line " .. lineNum .. ":</b> " .. coloredLine:sub(1, 80) .. (lineContent:len() > 80 and "..." or ""))
+            for _, child in ipairs(instance:GetChildren()) do
+                pcall(function() countScripts(child) end)
+            end
+        end
+        
+        for _, service in ipairs(game:GetChildren()) do
+            pcall(function() countScripts(service) end)
+        end
+        
+        self.UI.Elements.TotalScriptsValue.Text = tostring(totalScripts)
+        
+        local function searchForKickInScript(script, path)
+            scannedScripts = scannedScripts + 1
+            self.UI:UpdateProgress(scannedScripts / totalScripts)
+            
+            local scriptSource = self:GetScriptSource(script)
+            
+            if scriptSource and type(scriptSource) == "string" then
+                local lines = {}
+                for line in scriptSource:gmatch("[^\r\n]+") do table.insert(lines, line) end
+                
+                local kickLines = {}
+                for lineNum, lineContent in ipairs(lines) do
+                    if string.find(string.lower(lineContent), string.lower("Kick")) then
+                        local coloredLine = lineContent:gsub("([Kk][Ii][Cc][Kk])", "<font color='#FF5555'>%1</font>")
+                        table.insert(kickLines, "<b>Line " .. lineNum .. ":</b> " .. coloredLine:sub(1, 80) .. (lineContent:len() > 80 and "..." or ""))
+                    end
                 end
-            end
-            
-            if #kickLines > 0 then
-                foundCount = foundCount + 1
-                local details = table.concat(kickLines, "\n")
-                self:AddResult(script.Name .. " (" .. path .. ")", details, "found", script, path)
-            end
-        else
-            local bytecodeSuccess, bytecode = pcall(function()
-                if getscriptbytecode then return getscriptbytecode(script)
-                elseif dumpstring then return dumpstring(script) else return nil end
-            end)
-            
-            if bytecodeSuccess and bytecode then
-                local bytecodeLower = string.lower(bytecode)
-                if string.find(bytecodeLower, string.lower("Kick")) then
+                
+                if #kickLines > 0 then
                     foundCount = foundCount + 1
-                    
-                    -- Try to extract some context around the "Kick" mention
-                    local kickInstances = {}
-                    local lastPos = 1
-                    local kickLower = string.lower("kick")
-                    
-                    while true do
-                        local startPos, endPos = string.find(bytecodeLower, kickLower, lastPos)
-                        if not startPos then break end
-                        
-                        -- Get some context (up to 20 chars before and after)
-                        local contextStart = math.max(1, startPos - 20)
-                        local contextEnd = math.min(#bytecode, endPos + 20)
-                        local context = string.sub(bytecode, contextStart, contextEnd)
-                        
-                        -- Clean up non-printable characters
-                        context = context:gsub("[%c%z]", ".")
-                        
-                        -- Format for display with the "Kick" highlighted
-                        local displayContext = context:gsub("([Kk][Ii][Cc][Kk])", "<font color='#FF5555'>%1</font>")
-                        table.insert(kickInstances, displayContext)
-                        
-                        lastPos = endPos + 1
-                        if #kickInstances >= 5 then break end -- Limit to 5 instances
-                    end
-                    
-                    local details = "<i>Found 'Kick' in bytecode. Unable to show exact line numbers, but here's some context:</i>\n\n"
-                    
-                    if #kickInstances > 0 then
-                        for i, context in ipairs(kickInstances) do
-                            details = details .. "<b>Instance " .. i .. ":</b> " .. context .. "\n"
-                        end
-                    else
-                        details = details .. "<i>The keyword is present but additional context cannot be extracted.</i>"
-                    end
-                    
-                    -- Add info about likely locations
-                    details = details .. "\n<b>Potential functions:</b> Look for Player:Kick(), game.Players:Kick(), or similar patterns."
-                    
-                    self:AddResult(script.Name .. " (" .. path .. ")", details, "bytecode", script, path)
+                    local details = table.concat(kickLines, "\n")
+                    self:AddResult(script.Name .. " (" .. path .. ")", details, "found", script, path)
                 end
+            else
+                local bytecodeSuccess, bytecode = pcall(function()
+                    if getscriptbytecode then return getscriptbytecode(script)
+                    elseif dumpstring then return dumpstring(script) else return nil end
+                end)
+                
+                if bytecodeSuccess and bytecode then
+                    local bytecodeLower = string.lower(bytecode)
+                    if string.find(bytecodeLower, string.lower("Kick")) then
+                        foundCount = foundCount + 1
+                        
+                        -- Try to extract some context around the "Kick" mention
+                        local kickInstances = {}
+                        local lastPos = 1
+                        local kickLower = string.lower("kick")
+                        
+                        while true do
+                            local startPos, endPos = string.find(bytecodeLower, kickLower, lastPos)
+                            if not startPos then break end
+                            
+                            -- Get some context (up to 20 chars before and after)
+                            local contextStart = math.max(1, startPos - 20)
+                            local contextEnd = math.min(#bytecode, endPos + 20)
+                            local context = string.sub(bytecode, contextStart, contextEnd)
+                            
+                            -- Clean up non-printable characters
+                            context = context:gsub("[%c%z]", ".")
+                            
+                            -- Format for display with the "Kick" highlighted
+                            local displayContext = context:gsub("([Kk][Ii][Cc][Kk])", "<font color='#FF5555'>%1</font>")
+                            table.insert(kickInstances, displayContext)
+                            
+                            lastPos = endPos + 1
+                            if #kickInstances >= 5 then break end -- Limit to 5 instances
+                        end
+                        
+                        local details = "<i>Found 'Kick' in bytecode. Unable to show exact line numbers, but here's some context:</i>\n\n"
+                        
+                        if #kickInstances > 0 then
+                            for i, context in ipairs(kickInstances) do
+                                details = details .. "<b>Instance " .. i .. ":</b> " .. context .. "\n"
+                            end
+                        else
+                            details = details .. "<i>The keyword is present but additional context cannot be extracted.</i>"
+                        end
+                        
+                        -- Add info about likely locations
+                        details = details .. "\n<b>Potential functions:</b> Look for Player:Kick(), game.Players:Kick(), or similar patterns."
+                        
+                        self:AddResult(script.Name .. " (" .. path .. ")", details, "bytecode", script, path)
+                    end
+                end
+            end
+            
+            self.UI:SetStatusText("Status: Scanning... (" .. scannedScripts .. "/" .. totalScripts .. ")")
+            task.wait(0) -- Yield to allow UI updates
+        end
+        
+        local function searchInInstance(instance, currentPath)
+            local path = currentPath .. "/" .. instance.Name
+            
+            if instance:IsA("LocalScript") then
+                pcall(function() searchForKickInScript(instance, path) end)
+            end
+            
+            for _, child in ipairs(instance:GetChildren()) do
+                pcall(function() searchInInstance(child, path) end)
             end
         end
         
-        self.UI:SetStatusText("Status: Scanning... (" .. scannedScripts .. "/" .. totalScripts .. ")")
-        task.wait(0) -- Yield to allow UI updates
-    end
-    
-    local function searchInInstance(instance, currentPath)
-        local path = currentPath .. "/" .. instance.Name
+        self.UI:SetStatusText("Status: Scanning priority locations...")
+        local priorityLocations = {
+            game:GetService("ReplicatedStorage"),
+            game:GetService("StarterGui"),
+            game:GetService("StarterPlayer"),
+            game:GetService("StarterPlayerScripts"),
+            game:GetService("StarterCharacterScripts"),
+            game:GetService("Players").LocalPlayer,
+            game:GetService("Players").LocalPlayer and game:GetService("Players").LocalPlayer.PlayerScripts
+        }
         
-        if instance:IsA("LocalScript") then
-            searchForKickInScript(instance, path)
+        for _, location in ipairs(priorityLocations) do
+            if location then pcall(function() searchInInstance(location, location.Name) end) end
         end
-        
-        for _, child in ipairs(instance:GetChildren()) do
-            pcall(function() searchInInstance(child, path) end)
-        end
-    end
-    
-    self.UI:SetStatusText("Status: Scanning priority locations...")
-    local priorityLocations = {
-        game:GetService("ReplicatedStorage"),
-        game:GetService("StarterGui"),
-        game:GetService("StarterPlayer"),
-        game:GetService("StarterPlayerScripts"),
-        game:GetService("StarterCharacterScripts"),
-        game:GetService("Players").LocalPlayer,
-        game:GetService("Players").LocalPlayer and game:GetService("Players").LocalPlayer.PlayerScripts
-    }
-    
-    for _, location in ipairs(priorityLocations) do
-        if location then pcall(function() searchInInstance(location, location.Name) end) end
-    end
+    end)
     
     self.UI:UpdateProgress(1)
     self.UI:SetStatusText(foundCount > 0 

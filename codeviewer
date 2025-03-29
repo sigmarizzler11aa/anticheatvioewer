@@ -1,0 +1,144 @@
+local CodeViewer = {}
+CodeViewer.__index = CodeViewer
+
+-- Services
+local TweenService = game:GetService("TweenService")
+
+function CodeViewer.new(ui)
+    local self = setmetatable({}, CodeViewer)
+    
+    -- Store references
+    self.UI = ui
+    
+    -- Setup scroll syncing between line numbers and code text
+    self:SetupScrollSync()
+    
+    return self
+end
+
+function CodeViewer:SetupScrollSync()
+    -- Get references to the elements
+    local codeTextBox = self.UI.Elements.CodeTextBox
+    local lineNumbersText = self.UI.Elements.LineNumbersText
+    local codeScrollFrame = codeTextBox.Parent
+    
+    -- Sync scrolling
+    codeScrollFrame:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+        local scrollPosition = codeScrollFrame.CanvasPosition.Y
+        lineNumbersText.Position = UDim2.new(0, 0, 0, -scrollPosition)
+    end)
+end
+
+function CodeViewer:ViewScript(script, path, scriptSource, kickLineNumbers)
+    local codeTextBox = self.UI.Elements.CodeTextBox
+    local lineNumbersText = self.UI.Elements.LineNumbersText
+    local fileInfoHeader = self.UI.Elements.FileInfoHeader
+    
+    -- Update file info header
+    fileInfoHeader.Text = script.Name .. " (" .. path .. ")"
+    
+    if not scriptSource then
+        codeTextBox.Text = "-- Unable to decompile script source code"
+        lineNumbersText.Text = "1"
+        return
+    end
+    
+    -- Process the script source
+    local sourceLines = {}
+    local lineNumbers = {}
+    local lineCount = 0
+    
+    -- Split the source into lines and format
+    for line in scriptSource:gmatch("[^\r\n]+") do
+        lineCount = lineCount + 1
+        table.insert(lineNumbers, lineCount)
+        
+        -- Check if this line contains a kick function
+        local isKickLine = false
+        for _, kickLine in ipairs(kickLineNumbers) do
+            if kickLine == lineCount then
+                isKickLine = true
+                break
+            end
+        end
+        
+        -- Highlight kick functions in red
+        if isKickLine then
+            -- Highlight the whole line with a background
+            local highlightedLine = "<font color='#FFFFFF' bgcolor='#661111'>" .. line:gsub("([Kk][Ii][Cc][Kk])", "<font color='#FF5555'>%1</font>") .. "</font>"
+            table.insert(sourceLines, highlightedLine)
+        else
+            -- Add syntax highlighting
+            local highlightedLine = self:ApplySyntaxHighlighting(line)
+            table.insert(sourceLines, highlightedLine)
+        end
+    end
+    
+    -- Create line numbers text
+    local lineNumbersString = table.concat(lineNumbers, "\n")
+    lineNumbersText.Text = lineNumbersString
+    
+    -- Set code text
+    codeTextBox.Text = table.concat(sourceLines, "\n")
+    
+    -- Resize canvas
+    local codeScrollFrame = codeTextBox.Parent
+    codeScrollFrame.CanvasSize = UDim2.new(0, 0, 0, lineCount * 18)
+    
+    -- If we have kick lines, scroll to the first one
+    if #kickLineNumbers > 0 then
+        task.wait(0.1) -- Wait for UI to update
+        codeScrollFrame.CanvasPosition = Vector2.new(0, (kickLineNumbers[1] - 3) * 18) -- Scroll to 3 lines before the kick
+    end
+end
+
+function CodeViewer:ApplySyntaxHighlighting(line)
+    -- Basic Lua syntax highlighting
+    local highlighted = line
+    
+    -- Highlight comments
+    highlighted = highlighted:gsub("(%-%-[^\n]*)", "<font color='#77BB77'>%1</font>")
+    
+    -- Highlight strings
+    highlighted = highlighted:gsub("(\"[^\"]*\")", "<font color='#DDAA55'>%1</font>")
+    highlighted = highlighted:gsub("('.-[^\\]')", "<font color='#DDAA55'>%1</font>")
+    
+    -- Highlight keywords
+    local keywords = {
+        "and", "break", "do", "else", "elseif", "end", "false", "for", 
+        "function", "if", "in", "local", "nil", "not", "or", "repeat", 
+        "return", "then", "true", "until", "while"
+    }
+    
+    for _, keyword in ipairs(keywords) do
+        highlighted = highlighted:gsub("([^%w_]" .. keyword .. "[^%w_])", function(match)
+            return match:sub(1, 1) .. "<font color='#7799DD'>" .. keyword .. "</font>" .. match:sub(-1)
+        end)
+    end
+    
+    -- Handle edge cases at start/end of line
+    for _, keyword in ipairs(keywords) do
+        highlighted = highlighted:gsub("^(" .. keyword .. "[^%w_])", function(match)
+            return "<font color='#7799DD'>" .. keyword .. "</font>" .. match:sub(-1)
+        end)
+        
+        highlighted = highlighted:gsub("([^%w_]" .. keyword .. ")$", function(match)
+            return match:sub(1, 1) .. "<font color='#7799DD'>" .. keyword .. "</font>"
+        end)
+        
+        highlighted = highlighted:gsub("^(" .. keyword .. ")$", function(match)
+            return "<font color='#7799DD'>" .. keyword .. "</font>"
+        end)
+    end
+    
+    -- Highlight numbers
+    highlighted = highlighted:gsub("([^%w_])(%d+%.?%d*)", "%1<font color='#DD88DD'>%2</font>")
+    highlighted = highlighted:gsub("^(%d+%.?%d*)", "<font color='#DD88DD'>%1</font>")
+    
+    -- Special case for kick related functions
+    highlighted = highlighted:gsub("([Pp]layer[s]?%s*:%s*[Kk][Ii][Cc][Kk])", "<font color='#FF5555'>%1</font>")
+    
+    return highlighted
+end
+
+return CodeViewer

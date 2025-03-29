@@ -1,0 +1,338 @@
+local Scanner = {}
+Scanner.__index = Scanner
+
+-- Services
+local TweenService = game:GetService("TweenService")
+
+function Scanner.new(ui)
+    local self = setmetatable({}, Scanner)
+    
+    -- Store references
+    self.UI = ui
+    self.ResultsList = {}
+    
+    return self
+end
+
+function Scanner:ClearResults()
+    for _, result in ipairs(self.ResultsList) do
+        TweenService:Create(result, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
+        task.delay(0.2, function()
+            result:Destroy()
+        end)
+    end
+    
+    self.ResultsList = {}
+    self.UI.Elements.ResultsFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    self.UI.Elements.TotalScriptsValue.Text = "0"
+    self.UI.Elements.KickFoundValue.Text = "0"
+end
+
+function Scanner:AddResult(title, details, resultType, script, path)
+    local ResultContainer = Instance.new("Frame")
+    local ResultTitle = Instance.new("TextLabel")
+    local ResultDetails = Instance.new("TextLabel")
+    local StatusIcon = Instance.new("ImageLabel")
+    local UICornerResult = Instance.new("UICorner")
+    local DetailsCorner = Instance.new("UICorner")
+    local DetailsBG = Instance.new("Frame")
+    local ViewButton = Instance.new("TextButton")
+    
+    ResultContainer.Name = "Result_" .. #self.ResultsList + 1
+    if resultType == "found" then
+        ResultContainer.BackgroundColor3 = Color3.fromRGB(30, 60, 40)
+    elseif resultType == "bytecode" then
+        ResultContainer.BackgroundColor3 = Color3.fromRGB(60, 50, 20)
+    else
+        ResultContainer.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+    end
+    
+    local detailsLines = details:split("\n")
+    local detailsHeight = #detailsLines * 18 + 20
+    
+    ResultContainer.Size = UDim2.new(0.97, 0, 0, 50 + detailsHeight)
+    ResultContainer.Position = UDim2.new(0.015, 0, 0, 5 + (10 + self.UI.Elements.ResultsFrame.CanvasSize.Y.Offset))
+    UICornerResult.Parent = ResultContainer
+    UICornerResult.CornerRadius = UDim.new(0, 8)
+    
+    StatusIcon.Name = "StatusIcon"
+    StatusIcon.Parent = ResultContainer
+    StatusIcon.BackgroundTransparency = 1
+    StatusIcon.Position = UDim2.new(0, 10, 0, 12)
+    StatusIcon.Size = UDim2.new(0, 20, 0, 20)
+    
+    if resultType == "found" then
+        StatusIcon.Image = "rbxassetid://6031094678" -- Check icon
+        StatusIcon.ImageColor3 = Color3.fromRGB(40, 200, 80)
+    elseif resultType == "bytecode" then
+        StatusIcon.Image = "rbxassetid://6031071053" -- Warning icon
+        StatusIcon.ImageColor3 = Color3.fromRGB(240, 180, 30)
+    end
+    
+    ResultTitle.Parent = ResultContainer
+    ResultTitle.BackgroundTransparency = 1
+    ResultTitle.Position = UDim2.new(0, 35, 0, 10)
+    ResultTitle.Size = UDim2.new(1, -135, 0, 24)
+    ResultTitle.Font = Enum.Font.GothamBold
+    ResultTitle.Text = title
+    ResultTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ResultTitle.TextSize = 14
+    ResultTitle.TextXAlignment = Enum.TextXAlignment.Left
+    
+    -- Add View Button
+    ViewButton.Name = "ViewButton"
+    ViewButton.Parent = ResultContainer
+    ViewButton.BackgroundColor3 = Color3.fromRGB(80, 80, 220)
+    ViewButton.Position = UDim2.new(1, -90, 0, 10)
+    ViewButton.Size = UDim2.new(0, 80, 0, 24)
+    ViewButton.Font = Enum.Font.GothamBold
+    ViewButton.Text = "VIEW"
+    ViewButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ViewButton.TextSize = 12
+    
+    local ViewButtonCorner = Instance.new("UICorner")
+    ViewButtonCorner.CornerRadius = UDim.new(0, 6)
+    ViewButtonCorner.Parent = ViewButton
+    
+    -- Make view button hoverable
+    local hoverIn = TweenService:Create(ViewButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(100, 100, 240)})
+    local hoverOut = TweenService:Create(ViewButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(80, 80, 220)})
+    
+    ViewButton.MouseEnter:Connect(function()
+        hoverIn:Play()
+    end)
+    
+    ViewButton.MouseLeave:Connect(function()
+        hoverOut:Play()
+    end)
+    
+    -- Store script reference and kick information
+    ViewButton.MouseButton1Click:Connect(function()
+        local CodeViewer = require(script.Parent.CodeViewer)
+        
+        -- Extract line numbers from details
+        local kickLineNumbers = {}
+        for _, line in ipairs(detailsLines) do
+            local lineNum = line:match("Line (%d+):")
+            if lineNum then
+                table.insert(kickLineNumbers, tonumber(lineNum))
+            end
+        end
+        
+        -- Get script source if available
+        local scriptSource = self:GetScriptSource(script)
+        
+        -- View the script
+        CodeViewer:ViewScript(script, path, scriptSource, kickLineNumbers)
+        
+        -- Switch to viewer tab
+        self.UI:SwitchToTab("viewer")
+    end)
+    
+    DetailsBG.Name = "DetailsBG"
+    DetailsBG.Parent = ResultContainer
+    DetailsBG.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+    DetailsBG.BorderSizePixel = 0
+    DetailsBG.Position = UDim2.new(0, 10, 0, 40)
+    DetailsBG.Size = UDim2.new(1, -20, 0, detailsHeight)
+    
+    DetailsCorner.Parent = DetailsBG
+    DetailsCorner.CornerRadius = UDim.new(0, 6)
+    
+    ResultDetails.Parent = DetailsBG
+    ResultDetails.BackgroundTransparency = 1
+    ResultDetails.Position = UDim2.new(0, 10, 0, 0)
+    ResultDetails.Size = UDim2.new(1, -20, 1, 0)
+    ResultDetails.Font = Enum.Font.Gotham
+    ResultDetails.Text = details
+    ResultDetails.TextColor3 = Color3.fromRGB(220, 220, 220)
+    ResultDetails.TextSize = 12
+    ResultDetails.TextXAlignment = Enum.TextXAlignment.Left
+    ResultDetails.TextYAlignment = Enum.TextYAlignment.Top
+    ResultDetails.RichText = true
+    
+    ResultContainer.Parent = self.UI.Elements.ResultsFrame
+    table.insert(self.ResultsList, ResultContainer)
+    
+    self.UI.Elements.KickFoundValue.Text = #self.ResultsList
+    
+    self.UI.Elements.ResultsFrame.CanvasSize = UDim2.new(0, 0, 0, ResultContainer.Position.Y.Offset + ResultContainer.Size.Y.Offset + 5)
+    
+    -- Create appear animation
+    ResultContainer.BackgroundTransparency = 1
+    DetailsBG.BackgroundTransparency = 1
+    ResultTitle.TextTransparency = 1
+    ResultDetails.TextTransparency = 1
+    StatusIcon.ImageTransparency = 1
+    ViewButton.BackgroundTransparency = 1
+    ViewButton.TextTransparency = 1
+    
+    -- Play appear animation
+    TweenService:Create(ResultContainer, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
+    TweenService:Create(DetailsBG, TweenInfo.new(0.3, Enum.EasingStyle.Quint), {BackgroundTransparency = 0}):Play()
+    TweenService:Create(ResultTitle, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
+    TweenService:Create(ResultDetails, TweenInfo.new(0.3), {TextTransparency = 0}):Play()
+    TweenService:Create(StatusIcon, TweenInfo.new(0.3), {ImageTransparency = 0}):Play()
+    TweenService:Create(ViewButton, TweenInfo.new(0.3), {BackgroundTransparency = 0, TextTransparency = 0}):Play()
+    
+    return ResultContainer
+end
+
+function Scanner:GetScriptSource(script)
+    local decompileFunctions = {
+        decompile, getscriptbytecode, dumpstring, getscriptsource,
+        function(s) return s:GetSource() end, function(s) return s.Source end
+    }
+    
+    local success, scriptSource = false, nil
+    for _, func in ipairs(decompileFunctions) do
+        if type(func) == "function" then
+            success, scriptSource = pcall(function() return func(script) end)
+            if success and scriptSource and type(scriptSource) == "string" then break end
+        end
+    end
+    
+    return success and scriptSource or nil
+end
+
+function Scanner:Scan()
+    self:ClearResults()
+    self.UI:SetStatusText("Status: Initializing scan...")
+    self.UI:UpdateProgress(0.05)
+    
+    local totalScripts = 0
+    local scannedScripts = 0
+    local foundCount = 0
+    
+    -- First, count all scripts to track progress
+    local function countScripts(instance)
+        if instance:IsA("LocalScript") then
+            totalScripts = totalScripts + 1
+        end
+        
+        for _, child in ipairs(instance:GetChildren()) do
+            countScripts(child)
+        end
+    end
+    
+    for _, service in ipairs(game:GetChildren()) do
+        pcall(function() countScripts(service) end)
+    end
+    
+    self.UI.Elements.TotalScriptsValue.Text = tostring(totalScripts)
+    
+    local function searchForKickInScript(script, path)
+        scannedScripts = scannedScripts + 1
+        self.UI:UpdateProgress(scannedScripts / totalScripts)
+        
+        local scriptSource = self:GetScriptSource(script)
+        
+        if scriptSource and type(scriptSource) == "string" then
+            local lines = {}
+            for line in scriptSource:gmatch("[^\r\n]+") do table.insert(lines, line) end
+            
+            local kickLines = {}
+            for lineNum, lineContent in ipairs(lines) do
+                if string.find(string.lower(lineContent), string.lower("Kick")) then
+                    local coloredLine = lineContent:gsub("([Kk][Ii][Cc][Kk])", "<font color='#FF5555'>%1</font>")
+                    table.insert(kickLines, "<b>Line " .. lineNum .. ":</b> " .. coloredLine:sub(1, 80) .. (lineContent:len() > 80 and "..." or ""))
+                end
+            end
+            
+            if #kickLines > 0 then
+                foundCount = foundCount + 1
+                local details = table.concat(kickLines, "\n")
+                self:AddResult(script.Name .. " (" .. path .. ")", details, "found", script, path)
+            end
+        else
+            local bytecodeSuccess, bytecode = pcall(function()
+                if getscriptbytecode then return getscriptbytecode(script)
+                elseif dumpstring then return dumpstring(script) else return nil end
+            end)
+            
+            if bytecodeSuccess and bytecode then
+                local bytecodeLower = string.lower(bytecode)
+                if string.find(bytecodeLower, string.lower("Kick")) then
+                    foundCount = foundCount + 1
+                    
+                    -- Try to extract some context around the "Kick" mention
+                    local kickInstances = {}
+                    local lastPos = 1
+                    local kickLower = string.lower("kick")
+                    
+                    while true do
+                        local startPos, endPos = string.find(bytecodeLower, kickLower, lastPos)
+                        if not startPos then break end
+                        
+                        -- Get some context (up to 20 chars before and after)
+                        local contextStart = math.max(1, startPos - 20)
+                        local contextEnd = math.min(#bytecode, endPos + 20)
+                        local context = string.sub(bytecode, contextStart, contextEnd)
+                        
+                        -- Clean up non-printable characters
+                        context = context:gsub("[%c%z]", ".")
+                        
+                        -- Format for display with the "Kick" highlighted
+                        local displayContext = context:gsub("([Kk][Ii][Cc][Kk])", "<font color='#FF5555'>%1</font>")
+                        table.insert(kickInstances, displayContext)
+                        
+                        lastPos = endPos + 1
+                        if #kickInstances >= 5 then break end -- Limit to 5 instances
+                    end
+                    
+                    local details = "<i>Found 'Kick' in bytecode. Unable to show exact line numbers, but here's some context:</i>\n\n"
+                    
+                    if #kickInstances > 0 then
+                        for i, context in ipairs(kickInstances) do
+                            details = details .. "<b>Instance " .. i .. ":</b> " .. context .. "\n"
+                        end
+                    else
+                        details = details .. "<i>The keyword is present but additional context cannot be extracted.</i>"
+                    end
+                    
+                    -- Add info about likely locations
+                    details = details .. "\n<b>Potential functions:</b> Look for Player:Kick(), game.Players:Kick(), or similar patterns."
+                    
+                    self:AddResult(script.Name .. " (" .. path .. ")", details, "bytecode", script, path)
+                end
+            end
+        end
+        
+        self.UI:SetStatusText("Status: Scanning... (" .. scannedScripts .. "/" .. totalScripts .. ")")
+        task.wait(0) -- Yield to allow UI updates
+    end
+    
+    local function searchInInstance(instance, currentPath)
+        local path = currentPath .. "/" .. instance.Name
+        
+        if instance:IsA("LocalScript") then
+            searchForKickInScript(instance, path)
+        end
+        
+        for _, child in ipairs(instance:GetChildren()) do
+            pcall(function() searchInInstance(child, path) end)
+        end
+    end
+    
+    self.UI:SetStatusText("Status: Scanning priority locations...")
+    local priorityLocations = {
+        game:GetService("ReplicatedStorage"),
+        game:GetService("StarterGui"),
+        game:GetService("StarterPlayer"),
+        game:GetService("StarterPlayerScripts"),
+        game:GetService("StarterCharacterScripts"),
+        game:GetService("Players").LocalPlayer,
+        game:GetService("Players").LocalPlayer and game:GetService("Players").LocalPlayer.PlayerScripts
+    }
+    
+    for _, location in ipairs(priorityLocations) do
+        if location then pcall(function() searchInInstance(location, location.Name) end) end
+    end
+    
+    self.UI:UpdateProgress(1)
+    self.UI:SetStatusText(foundCount > 0 
+        and "Status: Scan complete. Found " .. foundCount .. " scripts with 'Kick'" 
+        or "Status: Scan complete. No 'Kick' functions found")
+end
+
+return Scanner

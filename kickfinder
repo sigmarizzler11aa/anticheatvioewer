@@ -1,0 +1,57 @@
+local KickFinder = {}
+
+-- Services
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
+
+-- Modules
+local UI = require(script.UI)
+local Scanner = require(script.Scanner)
+local CodeViewer = require(script.CodeViewer)
+
+function KickFinder:Initialize()
+    -- Create main UI elements
+    self.UI = UI.new()
+    self.Scanner = Scanner.new(self.UI)
+    self.CodeViewer = CodeViewer.new(self.UI)
+    
+    -- Set up UI interactions
+    self:SetupUIInteractions()
+    
+    -- Show the UI with animation
+    self.UI:ShowWithAnimation()
+    
+    return self
+end
+
+function KickFinder:SetupUIInteractions()
+    -- Set up scan button
+    self.UI.Elements.SearchButton.MouseButton1Click:Connect(function()
+        self.Scanner:Scan()
+    end)
+    
+    -- Set up close button
+    self.UI.Elements.CloseButton.MouseButton1Click:Connect(function()
+        self.UI:Close()
+    end)
+    
+    -- Set up minimize button
+    self.UI.Elements.MinimizeButton.MouseButton1Click:Connect(function()
+        self.UI:ToggleMinimize()
+    end)
+    
+    -- Set up tab switching
+    self.UI.Elements.ScanTab.MouseButton1Click:Connect(function()
+        self.UI:SwitchToTab("scan")
+    end)
+    
+    self.UI.Elements.ViewerTab.MouseButton1Click:Connect(function()
+        self.UI:SwitchToTab("viewer")
+    end)
+end
+
+-- Create the finder instance
+local finder = KickFinder:Initialize()
+
+return finder

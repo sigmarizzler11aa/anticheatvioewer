@@ -1,1 +1,588 @@
+local UI = {}
+UI.__index = UI
 
+-- Services
+local TweenService = game:GetService("TweenService")
+
+function UI.new()
+    local self = setmetatable({}, UI)
+    
+    -- Create UI elements
+    self:CreateScreenGui()
+    self:CreateBlurEffect()
+    self:CreateMainFrame()
+    self:CreateTopBar()
+    self:CreateTabs()
+    self:CreateScanTab()
+    self:CreateViewerTab()
+    
+    -- Set up draggable behavior
+    self:SetupDrag()
+    
+    -- Store a reference to all UI elements
+    self.Elements = {
+        ScreenGui = self.ScreenGui,
+        MainFrame = self.MainFrame,
+        BlurEffect = self.BlurEffect,
+        TopBar = self.TopBar,
+        SearchButton = self.SearchButton,
+        CloseButton = self.CloseButton,
+        MinimizeButton = self.MinimizeButton,
+        ScanProgressInner = self.ScanProgressInner,
+        ResultsFrame = self.ResultsFrame,
+        StatusBarText = self.StatusBarText,
+        TotalScriptsValue = self.TotalScriptsValue,
+        KickFoundValue = self.KickFoundValue,
+        ScanTab = self.ScanTab,
+        ViewerTab = self.ViewerTab,
+        ScanContainer = self.ScanContainer,
+        ViewerContainer = self.ViewerContainer,
+        CodeTextBox = self.CodeTextBox,
+        LineNumbersText = self.LineNumbersText
+    }
+    
+    return self
+end
+
+function UI:CreateScreenGui()
+    self.ScreenGui = Instance.new("ScreenGui")
+    self.ScreenGui.Name = "KickFinderPremium"
+    self.ScreenGui.Parent = game:GetService("CoreGui")
+    self.ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    self.ScreenGui.DisplayOrder = 999
+end
+
+function UI:CreateBlurEffect()
+    self.BlurEffect = Instance.new("BlurEffect")
+    self.BlurEffect.Size = 12
+    self.BlurEffect.Enabled = true
+    self.BlurEffect.Parent = game:GetService("Lighting")
+end
+
+function UI:CreateMainFrame()
+    self.MainFrame = Instance.new("Frame")
+    self.MainFrame.Name = "KickFinderUI"
+    self.MainFrame.Parent = self.ScreenGui
+    self.MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 28)
+    self.MainFrame.BorderSizePixel = 0
+    self.MainFrame.Position = UDim2.new(0.5, -250, 0.5, -175)
+    self.MainFrame.Size = UDim2.new(0, 500, 0, 350)
+    self.MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    self.MainFrame.ClipsDescendants = true
+    
+    local MainCorner = Instance.new("UICorner")
+    MainCorner.CornerRadius = UDim.new(0, 12)
+    MainCorner.Parent = self.MainFrame
+    
+    local MainStroke = Instance.new("UIStroke")
+    MainStroke.Color = Color3.fromRGB(90, 90, 220)
+    MainStroke.Thickness = 1.5
+    MainStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    MainStroke.Parent = self.MainFrame
+    
+    local MainGradient = Instance.new("UIGradient")
+    MainGradient.Color = ColorSequence.new{
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 45)),
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(25, 25, 35)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(20, 20, 30))
+    }
+    MainGradient.Rotation = 45
+    MainGradient.Parent = self.MainFrame
+end
+
+function UI:CreateTopBar()
+    self.TopBar = Instance.new("Frame")
+    self.TopBar.Name = "TopBar"
+    self.TopBar.Parent = self.MainFrame
+    self.TopBar.BackgroundColor3 = Color3.fromRGB(30, 30, 45)
+    self.TopBar.BorderSizePixel = 0
+    self.TopBar.Position = UDim2.new(0, 0, 0, 0)
+    self.TopBar.Size = UDim2.new(1, 0, 0, 36)
+    
+    local TopBarCorner = Instance.new("UICorner")
+    TopBarCorner.CornerRadius = UDim.new(0, 12)
+    TopBarCorner.Parent = self.TopBar
+    
+    local TopBarLine = Instance.new("Frame")
+    TopBarLine.Name = "TopBarLine"
+    TopBarLine.Parent = self.TopBar
+    TopBarLine.BackgroundColor3 = Color3.fromRGB(80, 80, 220)
+    TopBarLine.BorderSizePixel = 0
+    TopBarLine.Position = UDim2.new(0, 0, 1, -1)
+    TopBarLine.Size = UDim2.new(1, 0, 0, 1)
+    
+    local LogoIcon = Instance.new("ImageLabel")
+    LogoIcon.Name = "LogoIcon"
+    LogoIcon.Parent = self.TopBar
+    LogoIcon.BackgroundTransparency = 1
+    LogoIcon.Position = UDim2.new(0, 12, 0.5, -12)
+    LogoIcon.Size = UDim2.new(0, 24, 0, 24)
+    LogoIcon.Image = "rbxassetid://6031075939" -- Lock icon
+    LogoIcon.ImageColor3 = Color3.fromRGB(80, 80, 220)
+    
+    local Title = Instance.new("TextLabel")
+    Title.Name = "Title"
+    Title.Parent = self.TopBar
+    Title.BackgroundTransparency = 1
+    Title.Position = UDim2.new(0, 42, 0, 0)
+    Title.Size = UDim2.new(0, 200, 1, 0)
+    Title.Font = Enum.Font.GothamBold
+    Title.Text = "KICK FINDER"
+    Title.TextColor3 = Color3.fromRGB(240, 240, 255)
+    Title.TextSize = 16
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    
+    self.MinimizeButton = Instance.new("ImageButton")
+    self.MinimizeButton.Name = "MinimizeButton"
+    self.MinimizeButton.Parent = self.TopBar
+    self.MinimizeButton.BackgroundTransparency = 1
+    self.MinimizeButton.Position = UDim2.new(1, -72, 0.5, -12)
+    self.MinimizeButton.Size = UDim2.new(0, 24, 0, 24)
+    self.MinimizeButton.Image = "rbxassetid://6031090990" -- Minimize icon
+    self.MinimizeButton.ImageColor3 = Color3.fromRGB(200, 200, 200)
+    
+    self.CloseButton = Instance.new("ImageButton")
+    self.CloseButton.Name = "CloseButton"
+    self.CloseButton.Parent = self.TopBar
+    self.CloseButton.BackgroundTransparency = 1
+    self.CloseButton.Position = UDim2.new(1, -36, 0.5, -12)
+    self.CloseButton.Size = UDim2.new(0, 24, 0, 24)
+    self.CloseButton.Image = "rbxassetid://6031094678" -- Close icon
+    self.CloseButton.ImageColor3 = Color3.fromRGB(255, 80, 80)
+    
+    self.StatusBarText = Instance.new("TextLabel")
+    self.StatusBarText.Name = "StatusText"
+    self.StatusBarText.Parent = self.MainFrame
+    self.StatusBarText.BackgroundTransparency = 1
+    self.StatusBarText.Position = UDim2.new(0, 15, 0, 45)
+    self.StatusBarText.Size = UDim2.new(0, 200, 0, 20)
+    self.StatusBarText.Font = Enum.Font.Gotham
+    self.StatusBarText.Text = "Status: Ready to scan"
+    self.StatusBarText.TextColor3 = Color3.fromRGB(200, 200, 200)
+    self.StatusBarText.TextSize = 12
+    self.StatusBarText.TextXAlignment = Enum.TextXAlignment.Left
+end
+
+function UI:CreateTabs()
+    -- Create tab container
+    self.TabContainer = Instance.new("Frame")
+    self.TabContainer.Name = "TabContainer"
+    self.TabContainer.Parent = self.MainFrame
+    self.TabContainer.BackgroundTransparency = 1
+    self.TabContainer.Position = UDim2.new(0, 250, 0, 45)
+    self.TabContainer.Size = UDim2.new(0, 240, 0, 24)
+    
+    -- Create scan tab button
+    self.ScanTab = Instance.new("TextButton")
+    self.ScanTab.Name = "ScanTab"
+    self.ScanTab.Parent = self.TabContainer
+    self.ScanTab.BackgroundColor3 = Color3.fromRGB(60, 60, 200)
+    self.ScanTab.Position = UDim2.new(0, 0, 0, 0)
+    self.ScanTab.Size = UDim2.new(0, 110, 0, 24)
+    self.ScanTab.Font = Enum.Font.GothamBold
+    self.ScanTab.Text = "SCANNER"
+    self.ScanTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+    self.ScanTab.TextSize = 12
+    
+    local ScanTabCorner = Instance.new("UICorner")
+    ScanTabCorner.CornerRadius = UDim.new(0, 6)
+    ScanTabCorner.Parent = self.ScanTab
+    
+    -- Create code viewer tab button
+    self.ViewerTab = Instance.new("TextButton")
+    self.ViewerTab.Name = "ViewerTab"
+    self.ViewerTab.Parent = self.TabContainer
+    self.ViewerTab.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+    self.ViewerTab.Position = UDim2.new(0, 120, 0, 0)
+    self.ViewerTab.Size = UDim2.new(0, 120, 0, 24)
+    self.ViewerTab.Font = Enum.Font.GothamBold
+    self.ViewerTab.Text = "CODE VIEWER"
+    self.ViewerTab.TextColor3 = Color3.fromRGB(200, 200, 200)
+    self.ViewerTab.TextSize = 12
+    
+    local ViewerTabCorner = Instance.new("UICorner")
+    ViewerTabCorner.CornerRadius = UDim.new(0, 6)
+    ViewerTabCorner.Parent = self.ViewerTab
+    
+    -- Create tab containers
+    self.ScanContainer = Instance.new("Frame")
+    self.ScanContainer.Name = "ScanContainer"
+    self.ScanContainer.Parent = self.MainFrame
+    self.ScanContainer.BackgroundTransparency = 1
+    self.ScanContainer.Position = UDim2.new(0, 0, 0, 70)
+    self.ScanContainer.Size = UDim2.new(1, 0, 1, -70)
+    self.ScanContainer.Visible = true
+    
+    self.ViewerContainer = Instance.new("Frame")
+    self.ViewerContainer.Name = "ViewerContainer"
+    self.ViewerContainer.Parent = self.MainFrame
+    self.ViewerContainer.BackgroundTransparency = 1
+    self.ViewerContainer.Position = UDim2.new(0, 0, 0, 70)
+    self.ViewerContainer.Size = UDim2.new(1, 0, 1, -70)
+    self.ViewerContainer.Visible = false
+end
+
+function UI:CreateScanTab()
+    -- Create stats frame
+    local StatsFrame = Instance.new("Frame")
+    StatsFrame.Name = "StatsFrame"
+    StatsFrame.Parent = self.ScanContainer
+    StatsFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+    StatsFrame.BorderSizePixel = 0
+    StatsFrame.Position = UDim2.new(0, 10, 0, 0)
+    StatsFrame.Size = UDim2.new(0, 480, 0, 40)
+    
+    local StatsCorner = Instance.new("UICorner")
+    StatsCorner.CornerRadius = UDim.new(0, 8)
+    StatsCorner.Parent = StatsFrame
+    
+    local TotalScriptsLabel = Instance.new("TextLabel")
+    TotalScriptsLabel.Name = "TotalScriptsLabel"
+    TotalScriptsLabel.Parent = StatsFrame
+    TotalScriptsLabel.BackgroundTransparency = 1
+    TotalScriptsLabel.Position = UDim2.new(0, 15, 0, 0)
+    TotalScriptsLabel.Size = UDim2.new(0, 100, 0, 40)
+    TotalScriptsLabel.Font = Enum.Font.Gotham
+    TotalScriptsLabel.Text = "Scripts:"
+    TotalScriptsLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    TotalScriptsLabel.TextSize = 14
+    TotalScriptsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    self.TotalScriptsValue = Instance.new("TextLabel")
+    self.TotalScriptsValue.Name = "TotalScriptsValue"
+    self.TotalScriptsValue.Parent = StatsFrame
+    self.TotalScriptsValue.BackgroundTransparency = 1
+    self.TotalScriptsValue.Position = UDim2.new(0, 115, 0, 0)
+    self.TotalScriptsValue.Size = UDim2.new(0, 50, 0, 40)
+    self.TotalScriptsValue.Font = Enum.Font.GothamBold
+    self.TotalScriptsValue.Text = "0"
+    self.TotalScriptsValue.TextColor3 = Color3.fromRGB(255, 255, 255)
+    self.TotalScriptsValue.TextSize = 14
+    self.TotalScriptsValue.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local KickFoundLabel = Instance.new("TextLabel")
+    KickFoundLabel.Name = "KickFoundLabel"
+    KickFoundLabel.Parent = StatsFrame
+    KickFoundLabel.BackgroundTransparency = 1
+    KickFoundLabel.Position = UDim2.new(0, 240, 0, 0)
+    KickFoundLabel.Size = UDim2.new(0, 100, 0, 40)
+    KickFoundLabel.Font = Enum.Font.Gotham
+    KickFoundLabel.Text = "Kicks found:"
+    KickFoundLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+    KickFoundLabel.TextSize = 14
+    KickFoundLabel.TextXAlignment = Enum.TextXAlignment.Left
+    
+    self.KickFoundValue = Instance.new("TextLabel")
+    self.KickFoundValue.Name = "KickFoundValue"
+    self.KickFoundValue.Parent = StatsFrame
+    self.KickFoundValue.BackgroundTransparency = 1
+    self.KickFoundValue.Position = UDim2.new(0, 340, 0, 0)
+    self.KickFoundValue.Size = UDim2.new(0, 50, 0, 40)
+    self.KickFoundValue.Font = Enum.Font.GothamBold
+    self.KickFoundValue.Text = "0"
+    self.KickFoundValue.TextColor3 = Color3.fromRGB(255, 80, 80)
+    self.KickFoundValue.TextSize = 14
+    self.KickFoundValue.TextXAlignment = Enum.TextXAlignment.Left
+    
+    -- Create results frame
+    self.ResultsFrame = Instance.new("ScrollingFrame")
+    self.ResultsFrame.Name = "ResultsFrame"
+    self.ResultsFrame.Parent = self.ScanContainer
+    self.ResultsFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    self.ResultsFrame.BorderSizePixel = 0
+    self.ResultsFrame.Position = UDim2.new(0, 10, 0, 50)
+    self.ResultsFrame.Size = UDim2.new(0, 480, 0, 170)
+    self.ResultsFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    self.ResultsFrame.ScrollBarThickness = 4
+    self.ResultsFrame.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 220)
+    self.ResultsFrame.BottomImage = "rbxassetid://6689849479"
+    self.ResultsFrame.MidImage = "rbxassetid://6689849479"
+    self.ResultsFrame.TopImage = "rbxassetid://6689849479"
+    
+    local ResultsCorner = Instance.new("UICorner")
+    ResultsCorner.CornerRadius = UDim.new(0, 8)
+    ResultsCorner.Parent = self.ResultsFrame
+    
+    -- Create progress bar
+    local ScanProgress = Instance.new("Frame")
+    ScanProgress.Name = "ScanProgress"
+    ScanProgress.Parent = self.ScanContainer
+    ScanProgress.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+    ScanProgress.BorderSizePixel = 0
+    ScanProgress.Position = UDim2.new(0, 10, 0, 230)
+    ScanProgress.Size = UDim2.new(0, 380, 0, 6)
+    
+    local ScanProgressCorner = Instance.new("UICorner")
+    ScanProgressCorner.CornerRadius = UDim.new(1, 0)
+    ScanProgressCorner.Parent = ScanProgress
+    
+    self.ScanProgressInner = Instance.new("Frame")
+    self.ScanProgressInner.Name = "ScanProgressInner"
+    self.ScanProgressInner.Parent = ScanProgress
+    self.ScanProgressInner.BackgroundColor3 = Color3.fromRGB(80, 80, 220)
+    self.ScanProgressInner.BorderSizePixel = 0
+    self.ScanProgressInner.Size = UDim2.new(0, 0, 1, 0)
+    
+    local ScanProgressInnerCorner = Instance.new("UICorner")
+    ScanProgressInnerCorner.CornerRadius = UDim.new(1, 0)
+    ScanProgressInnerCorner.Parent = self.ScanProgressInner
+    
+    -- Create search button
+    self.SearchButton = Instance.new("TextButton")
+    self.SearchButton.Name = "SearchButton"
+    self.SearchButton.Parent = self.ScanContainer
+    self.SearchButton.BackgroundColor3 = Color3.fromRGB(60, 60, 200)
+    self.SearchButton.Position = UDim2.new(0, 400, 0, 230)
+    self.SearchButton.Size = UDim2.new(0, 90, 0, 40)
+    self.SearchButton.Font = Enum.Font.GothamBold
+    self.SearchButton.Text = "SCAN"
+    self.SearchButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    self.SearchButton.TextSize = 14
+    self.SearchButton.AutoButtonColor = false
+    
+    local SearchButtonCorner = Instance.new("UICorner")
+    SearchButtonCorner.CornerRadius = UDim.new(0, 8)
+    SearchButtonCorner.Parent = self.SearchButton
+    
+    local SearchIcon = Instance.new("ImageLabel")
+    SearchIcon.Name = "SearchIcon"
+    SearchIcon.Parent = self.SearchButton
+    SearchIcon.BackgroundTransparency = 1
+    SearchIcon.Position = UDim2.new(0, 10, 0.5, -10)
+    SearchIcon.Size = UDim2.new(0, 20, 0, 20)
+    SearchIcon.Image = "rbxassetid://3229001115" -- Search icon
+    SearchIcon.ImageColor3 = Color3.fromRGB(255, 255, 255)
+    
+    -- Make buttons interactive
+    self:MakeButtonHoverable(self.SearchButton, Color3.fromRGB(60, 60, 200), Color3.fromRGB(80, 80, 220))
+end
+
+function UI:CreateViewerTab()
+    -- Create code viewer container
+    local ViewerFrame = Instance.new("Frame")
+    ViewerFrame.Name = "ViewerFrame"
+    ViewerFrame.Parent = self.ViewerContainer
+    ViewerFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    ViewerFrame.BorderSizePixel = 0
+    ViewerFrame.Position = UDim2.new(0, 10, 0, 0)
+    ViewerFrame.Size = UDim2.new(0, 480, 0, 270)
+    
+    local ViewerCorner = Instance.new("UICorner")
+    ViewerCorner.CornerRadius = UDim.new(0, 8)
+    ViewerCorner.Parent = ViewerFrame
+    
+    -- Create file info header
+    self.FileInfoHeader = Instance.new("TextLabel")
+    self.FileInfoHeader.Name = "FileInfoHeader"
+    self.FileInfoHeader.Parent = ViewerFrame
+    self.FileInfoHeader.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
+    self.FileInfoHeader.Size = UDim2.new(1, 0, 0, 30)
+    self.FileInfoHeader.Font = Enum.Font.GothamBold
+    self.FileInfoHeader.Text = "No File Selected"
+    self.FileInfoHeader.TextColor3 = Color3.fromRGB(230, 230, 230)
+    self.FileInfoHeader.TextSize = 14
+    
+    local FileInfoHeaderCorner = Instance.new("UICorner")
+    FileInfoHeaderCorner.CornerRadius = UDim.new(0, 8)
+    FileInfoHeaderCorner.Parent = self.FileInfoHeader
+    
+    -- Create code viewer container
+    local CodeContainer = Instance.new("Frame")
+    CodeContainer.Name = "CodeContainer"
+    CodeContainer.Parent = ViewerFrame
+    CodeContainer.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    CodeContainer.BorderSizePixel = 0
+    CodeContainer.Position = UDim2.new(0, 5, 0, 35)
+    CodeContainer.Size = UDim2.new(1, -10, 1, -40)
+    
+    local CodeContainerCorner = Instance.new("UICorner")
+    CodeContainerCorner.CornerRadius = UDim.new(0, 6)
+    CodeContainerCorner.Parent = CodeContainer
+    
+    -- Create line numbers
+    self.LineNumbersText = Instance.new("TextLabel")
+    self.LineNumbersText.Name = "LineNumbersText"
+    self.LineNumbersText.Parent = CodeContainer
+    self.LineNumbersText.BackgroundColor3 = Color3.fromRGB(25, 25, 40)
+    self.LineNumbersText.BorderSizePixel = 0
+    self.LineNumbersText.Position = UDim2.new(0, 0, 0, 0)
+    self.LineNumbersText.Size = UDim2.new(0, 40, 1, 0)
+    self.LineNumbersText.Font = Enum.Font.Code
+    self.LineNumbersText.Text = ""
+    self.LineNumbersText.TextColor3 = Color3.fromRGB(150, 150, 150)
+    self.LineNumbersText.TextSize = 14
+    self.LineNumbersText.TextYAlignment = Enum.TextYAlignment.Top
+    self.LineNumbersText.TextXAlignment = Enum.TextXAlignment.Right
+    
+    local LineNumbersCorner = Instance.new("UICorner")
+    LineNumbersCorner.CornerRadius = UDim.new(0, 6)
+    LineNumbersCorner.Parent = self.LineNumbersText
+    
+    -- Create code text box
+    local CodeScrollFrame = Instance.new("ScrollingFrame")
+    CodeScrollFrame.Name = "CodeScrollFrame"
+    CodeScrollFrame.Parent = CodeContainer
+    CodeScrollFrame.BackgroundTransparency = 1
+    CodeScrollFrame.Position = UDim2.new(0, 45, 0, 0)
+    CodeScrollFrame.Size = UDim2.new(1, -50, 1, 0)
+    CodeScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    CodeScrollFrame.ScrollBarThickness = 4
+    CodeScrollFrame.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 220)
+    CodeScrollFrame.BottomImage = "rbxassetid://6689849479"
+    CodeScrollFrame.MidImage = "rbxassetid://6689849479"
+    CodeScrollFrame.TopImage = "rbxassetid://6689849479"
+    
+    self.CodeTextBox = Instance.new("TextBox")
+    self.CodeTextBox.Name = "CodeTextBox"
+    self.CodeTextBox.Parent = CodeScrollFrame
+    self.CodeTextBox.BackgroundTransparency = 1
+    self.CodeTextBox.Position = UDim2.new(0, 5, 0, 0)
+    self.CodeTextBox.Size = UDim2.new(1, -10, 1, 0)
+    self.CodeTextBox.ClearTextOnFocus = false
+    self.CodeTextBox.TextEditable = false
+    self.CodeTextBox.Font = Enum.Font.Code
+    self.CodeTextBox.Text = "-- No code to display. Select a script from the scanner tab."
+    self.CodeTextBox.TextColor3 = Color3.fromRGB(230, 230, 230)
+    self.CodeTextBox.TextSize = 14
+    self.CodeTextBox.TextXAlignment = Enum.TextXAlignment.Left
+    self.CodeTextBox.TextYAlignment = Enum.TextYAlignment.Top
+    self.CodeTextBox.TextWrapped = false
+    self.CodeTextBox.RichText = true
+    
+    -- Create back button
+    self.BackToScanButton = Instance.new("TextButton")
+    self.BackToScanButton.Name = "BackToScanButton"
+    self.BackToScanButton.Parent = self.ViewerContainer
+    self.BackToScanButton.BackgroundColor3 = Color3.fromRGB(60, 60, 200)
+    self.BackToScanButton.Position = UDim2.new(0, 400, 0, 275)
+    self.BackToScanButton.Size = UDim2.new(0, 90, 0, 30)
+    self.BackToScanButton.Font = Enum.Font.GothamBold
+    self.BackToScanButton.Text = "BACK"
+    self.BackToScanButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    self.BackToScanButton.TextSize = 14
+    self.BackToScanButton.AutoButtonColor = false
+    
+    local BackButtonCorner = Instance.new("UICorner")
+    BackButtonCorner.CornerRadius = UDim.new(0, 8)
+    BackButtonCorner.Parent = self.BackToScanButton
+    
+    -- Make button interactive
+    self:MakeButtonHoverable(self.BackToScanButton, Color3.fromRGB(60, 60, 200), Color3.fromRGB(80, 80, 220))
+    
+    -- Set up back button
+    self.BackToScanButton.MouseButton1Click:Connect(function()
+        self:SwitchToTab("scan")
+    end)
+end
+
+function UI:MakeButtonHoverable(button, defaultColor, hoverColor)
+    local hoverIn = TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = hoverColor})
+    local hoverOut = TweenService:Create(button, TweenInfo.new(0.2), {BackgroundColor3 = defaultColor})
+    
+    button.MouseEnter:Connect(function()
+        hoverIn:Play()
+    end)
+    
+    button.MouseLeave:Connect(function()
+        hoverOut:Play()
+    end)
+    
+    button.MouseButton1Down:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.1), {Size = button.Size - UDim2.new(0, 4, 0, 4), Position = button.Position + UDim2.new(0, 2, 0, 2)}):Play()
+    end)
+    
+    button.MouseButton1Up:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.1), {Size = button.Size + UDim2.new(0, 4, 0, 4), Position = button.Position - UDim2.new(0, 2, 0, 2)}):Play()
+    end)
+end
+
+function UI:SetupDrag()
+    local dragToggle = nil
+    local dragSpeed = 0.1
+    local dragInput = nil
+    local dragStart = nil
+    local dragPos = nil
+    local startPos = nil
+    
+    local function updateInput(input)
+        local delta = input.Position - dragStart
+        local position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        TweenService:Create(self.MainFrame, TweenInfo.new(dragSpeed), {Position = position}):Play()
+    end
+    
+    self.TopBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragToggle = true
+            dragStart = input.Position
+            startPos = self.MainFrame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragToggle = false
+                end
+            end)
+        end
+    end)
+    
+    self.TopBar.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    
+    game:GetService("UserInputService").InputChanged:Connect(function(input)
+        if input == dragInput and dragToggle then
+            updateInput(input)
+        end
+    end)
+end
+
+function UI:ShowWithAnimation()
+    self.MainFrame.Position = UDim2.new(0.5, -250, 1.5, 0)
+    TweenService:Create(self.MainFrame, TweenInfo.new(0.7, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, -250, 0.5, -175)}):Play()
+end
+
+function UI:Close()
+    -- Fade out animation
+    local fade = TweenService:Create(self.MainFrame, TweenInfo.new(0.5), {Position = UDim2.new(0.5, -250, 1.5, 0)})
+    fade:Play()
+    self.BlurEffect.Enabled = false
+    fade.Completed:Connect(function()
+        self.ScreenGui:Destroy()
+    end)
+end
+
+function UI:ToggleMinimize()
+    if self.MainFrame.Size ~= UDim2.new(0, 500, 0, 36) then
+        TweenService:Create(self.MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint), {Size = UDim2.new(0, 500, 0, 36)}):Play()
+    else
+        TweenService:Create(self.MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quint), {Size = UDim2.new(0, 500, 0, 350)}):Play()
+    end
+end
+
+function UI:SwitchToTab(tabName)
+    if tabName == "scan" then
+        self.ScanContainer.Visible = true
+        self.ViewerContainer.Visible = false
+        self.ScanTab.BackgroundColor3 = Color3.fromRGB(60, 60, 200)
+        self.ScanTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+        self.ViewerTab.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+        self.ViewerTab.TextColor3 = Color3.fromRGB(200, 200, 200)
+    elseif tabName == "viewer" then
+        self.ScanContainer.Visible = false
+        self.ViewerContainer.Visible = true
+        self.ScanTab.BackgroundColor3 = Color3.fromRGB(40, 40, 60)
+        self.ScanTab.TextColor3 = Color3.fromRGB(200, 200, 200)
+        self.ViewerTab.BackgroundColor3 = Color3.fromRGB(60, 60, 200)
+        self.ViewerTab.TextColor3 = Color3.fromRGB(255, 255, 255)
+    end
+end
+
+function UI:UpdateProgress(percentage)
+    TweenService:Create(self.ScanProgressInner, TweenInfo.new(0.3), {Size = UDim2.new(percentage, 0, 1, 0)}):Play()
+end
+
+function UI:SetStatusText(text)
+    self.StatusBarText.Text = text
+end
+
+return UI
